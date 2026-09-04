@@ -53,6 +53,9 @@ jobs:
         run: python scraper/media.py
 
       - name: Build static site
+        env:
+          # کد GoatCounter خود را اینجا بگذارید تا آمار بازدید فعال شود
+          GOATCOUNTER: "detectiveconanir"
         run: COPY_MEDIA=1 python generator/site.py
 
       - name: Commit updated archive
