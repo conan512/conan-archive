@@ -7,6 +7,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 from categories import ALL_CATEGORIES, categorize  # noqa
+import dashboard as dash  # noqa
 sys.path.insert(0, ROOT)
 import store  # noqa
 
@@ -75,8 +76,17 @@ def local(url, depth=0):
     return ("../" * depth) + "media/" + rel if rel else url
 
 
+# Set this to your GoatCounter code (e.g. "conanir") to enable visitor tracking.
+# Also set the same value in generator/live.js
+GOATCOUNTER = os.environ.get("GOATCOUNTER", "")
+
+
 def head(title, desc, depth=0):
     up = "../" * depth
+    analytics = (
+        f'<script data-goatcounter="https://{GOATCOUNTER}.goatcounter.com/count"'
+        f' async src="//gc.zgo.at/count.js"></script>' if GOATCOUNTER else
+        "<!-- analytics disabled: set GOATCOUNTER env var -->")
     return f"""<!doctype html>
 <html lang="fa" dir="rtl">
 <head>
@@ -87,6 +97,9 @@ def head(title, desc, depth=0):
 <meta property="og:title" content="{esc(title)}">
 <meta property="og:description" content="{esc(desc)}">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%95%B5%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+{analytics}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
 <link rel="stylesheet" href="{up}assets/theme.css">
 </head>
 <body>
@@ -96,18 +109,30 @@ def head(title, desc, depth=0):
 
 def header(active, depth=0):
     up = "../" * depth
-    nav = [("خانه", f"{up}index.html", "home"), ("آرشیو", f"{up}archive/index.html", "archive")]
-    for c in ALL_CATEGORIES:
-        nav.append((f'{c["icon"]} {c["title"]}', f'{up}category/{c["slug"]}.html', c["slug"]))
-    nav.append(("هشتگ‌ها", f"{up}tags.html", "tags"))
-    links = "".join(f'<a class="{"on" if k == active else ""}" href="{h}">{esc(t)}</a>' for t, h, k in nav)
+    cat_active = any(c["slug"] == active for c in ALL_CATEGORIES)
+    catlinks = "".join(
+        f'<a class="{"on" if c["slug"] == active else ""}" href="{up}category/{c["slug"]}.html">'
+        f'<span class="ci">{c["icon"]}</span>{esc(c["title"])}</a>' for c in ALL_CATEGORIES)
+
+    def top(t, h, k):
+        return f'<a class="{"on" if k == active else ""}" href="{h}">{esc(t)}</a>'
+
     return f"""<header class="site"><div class="wrap hrow">
 <a class="brand" href="{up}index.html">
-  <span class="lens">🕵️</span>
-  <span>کارآگاه کونان ایران<small>DETECTIVE CONAN · IR ARCHIVE</small></span>
+  <span class="lens">\U0001F575\uFE0F</span>
+  <span>\u06a9\u0627\u0631\u0622\u06af\u0627\u0647 \u06a9\u0648\u0646\u0627\u0646 \u0627\u06cc\u0631\u0627\u0646<small>DETECTIVE CONAN \u00b7 IR ARCHIVE</small></span>
 </a>
-<button class="menubtn" onclick="document.querySelector('nav.main').classList.toggle('open')">☰</button>
-<nav class="main">{links}</nav>
+<button class="menubtn" aria-label="\u0645\u0646\u0648" onclick="document.querySelector('nav.main').classList.toggle('open')">\u2630</button>
+<nav class="main">
+  {top("\u062e\u0627\u0646\u0647", up + "index.html", "home")}
+  {top("\u0622\u0631\u0634\u06cc\u0648", up + "archive/index.html", "archive")}
+  <div class="dd{' on' if cat_active else ''}">
+    <button type="button" onclick="this.parentElement.classList.toggle('open')">\U0001F5C2\uFE0F \u0628\u062e\u0634\u200c\u0647\u0627 <span class="car">\u25be</span></button>
+    <div class="ddmenu">{catlinks}</div>
+  </div>
+  {top("\u0647\u0634\u062a\u06af\u200c\u0647\u0627", up + "tags.html", "tags")}
+  {top("\U0001F4CA \u062f\u0627\u0634\u0628\u0648\u0631\u062f", up + "dashboard.html", "dashboard")}
+</nav>
 </div></header>"""
 
 
@@ -129,7 +154,8 @@ def footer(depth=0, updated=""):
 </div></footer>
 <script>
 document.addEventListener('click',e=>{{const n=document.querySelector('nav.main');
-if(n&&n.classList.contains('open')&&!e.target.closest('nav.main')&&!e.target.closest('.menubtn'))n.classList.remove('open');}});
+if(n&&n.classList.contains('open')&&!e.target.closest('nav.main')&&!e.target.closest('.menubtn'))n.classList.remove('open');
+document.querySelectorAll('.dd.open').forEach(d=>{{if(!d.contains(e.target))d.classList.remove('open');}});}});
 </script>
 </body></html>"""
 
@@ -221,6 +247,7 @@ def build():
         shutil.rmtree(OUT)
     os.makedirs(os.path.join(OUT, "assets"), exist_ok=True)
     shutil.copy(os.path.join(HERE, "theme.css"), os.path.join(OUT, "assets", "theme.css"))
+    shutil.copy(os.path.join(HERE, "live.js"), os.path.join(OUT, "assets", "live.js"))
     if os.path.isdir(MEDIA_SRC) and _MAN:
         dst = os.path.join(OUT, "media")
         if os.environ.get("COPY_MEDIA") == "1":
@@ -418,6 +445,112 @@ function linkify(t){{return E(t)
     for s, items in kept.items():
         listing(items, f"#{tag_names[s]}", f"پست‌های دارای هشتگ #{tag_names[s]} در کانال.", "🏷️",
                 "tag", s, 1, "tags")
+
+    # ---------- dashboard ----------
+    st = dash.build_stats(posts, by_cat, by_tag, by_year, CAT_BY_SLUG, jdate)
+
+    kpis = [
+        ("\U0001F4C4", f"{st['total_posts']:,}", "پست آرشیوی"),
+        ("\U0001F441", f"{st['total_views']:,}", "مجموع بازدید تلگرام"),
+        ("\U0001F4C8", f"{st['avg']:,.0f}", "میانگین بازدید هر پست"),
+        ("\U0001F3C6", f"{st['max']:,}", "بیشترین بازدید"),
+        ("\U0001F3F7", f"{st['n_tags']:,}", "هشتگ یکتا"),
+        ("\U0001F5C2", f"{len(ALL_CATEGORIES)}", "بخش موضوعی"),
+    ]
+    kpihtml = "".join(
+        f'<div class="kpi"><div class="ki">{i}</div><b>{v}</b><span>{l}</span></div>'
+        for i, v, l in kpis)
+
+    ys = sorted(st["years"].items())
+    year_chart = dash.bar_chart([(y, d["n"]) for y, d in ys], " پست")
+    yearv_chart = dash.bar_chart([(y, int(d["views"])) for y, d in ys], " بازدید", "var(--gold)")
+    mon_chart = dash.bar_chart([(m[5:7], n) for m, n in st["months"]], " پست", "var(--blue)")
+
+    dowlabels = ["دو", "سه", "چه", "پن", "جم", "شن", "یک"]
+    dow_chart = dash.bar_chart([(dowlabels[i], st["dows"].get(i, 0)) for i in range(7)],
+                               " پست", "var(--blue)")
+    hour_chart = dash.bar_chart([(f"{h:02d}", st["hours"].get(h, 0)) for h in range(24)],
+                                " پست", "var(--red)")
+
+    mcols = ["#d81f36", "#4d8fd6", "#e2b857", "#6c7a99"]
+    mlabels = {"photo": "تصویری", "video": "ویدیویی", "doc": "فایل", "text": "متنی"}
+    mparts = [(mlabels[k], v, mcols[i]) for i, (k, v) in enumerate(st["media"].items())]
+    mlegend = "".join(
+        f'<div class="lg"><i style="background:{c}"></i>{l}<b>{v:,}</b></div>'
+        for l, v, c in mparts)
+
+    _mxn = st["cats"][0]["n"] if st["cats"] else 1
+    catrows = "".join(
+        '<tr><td><a href="category/{s}.html">{ic} {t}</a></td><td>{n:,}</td>'
+        '<td>{vw:,}</td><td>{av:,.0f}</td>'
+        '<td><div class="mini"><i style="width:{pc:.0f}%"></i></div></td></tr>'.format(
+            s=c["slug"], ic=c["icon"], t=esc(c["title"]), n=c["n"],
+            vw=int(c["views"]), av=c["avg"], pc=c["n"] / _mxn * 100)
+        for c in st["cats"])
+
+    toprows = "".join(
+        '<tr><td class="rk">{i}</td><td><a href="post.html?id={pid}">{txt}</a></td>'
+        '<td>{dt}</td><td class="vw">{v:,}</td></tr>'.format(
+            i=i + 1, pid=p2["id"],
+            txt=esc((p2["text"].split("\n")[0] or "پست")[:58]),
+            dt=jdate(p2["date"]), v=p2["_v"])
+        for i, p2 in enumerate(st["top_posts"]))
+
+    tagrows = "".join(
+        f'<a href="tag/{s2}.html">#{esc(tag_names[s2])}<b>{len(v):,}</b></a>'
+        for s2, v in st["top_tags"])
+
+    _dash_body = """
+<main class="wrap">
+  <div class="sechead"><h2>\U0001F4CA داشبورد آمار</h2><div class="ln"></div>
+    <span style="font-size:.83rem;color:var(--dim)">به‌روزرسانی: {upd}</span></div>
+
+  <div class="kpis">{kpis}</div>
+
+  <div class="dgrid">
+    <div class="card"><h3>\U0001F4C5 پست‌ها در هر سال</h3>{yearc}</div>
+    <div class="card"><h3>\U0001F441 بازدید در هر سال</h3>{yearv}</div>
+  </div>
+
+  <div class="card"><h3>\U0001F4C8 فعالیت ۲۴ ماه اخیر</h3>{monc}</div>
+
+  <div class="dgrid">
+    <div class="card"><h3>\U0001F5BC ترکیب محتوا</h3>
+      <div class="dnt">{donut}<div class="lgs">{mlegend}</div></div></div>
+    <div class="card"><h3>\U0001F4C6 روزهای هفته</h3>{dowc}</div>
+  </div>
+
+  <div class="card"><h3>\U0001F551 ساعت انتشار (UTC)</h3>{hourc}</div>
+
+  <div class="card"><h3>\U0001F5C2 عملکرد بخش‌ها</h3>
+    <div class="tblwrap"><table class="dtbl">
+      <thead><tr><th>بخش</th><th>پست</th><th>بازدید</th><th>میانگین</th><th></th></tr></thead>
+      <tbody>{catrows}</tbody></table></div></div>
+
+  <div class="card"><h3>\U0001F3C6 پربازدیدترین پست‌ها</h3>
+    <div class="tblwrap"><table class="dtbl">
+      <thead><tr><th>#</th><th>پست</th><th>تاریخ</th><th>بازدید</th></tr></thead>
+      <tbody>{toprows}</tbody></table></div></div>
+
+  <div class="card"><h3>\U0001F3F7 پرتکرارترین هشتگ‌ها</h3>
+    <div class="cloud">{tagrows}</div></div>
+
+  <div class="card" id="live">
+    <h3>\U0001F310 آمار بازدیدکنندگان سایت</h3>
+    <div id="livebox"><div class="note" style="margin:0">
+      برای دیدن آمار زندهٔ بازدیدکنندگان، سرویس آمار را فعال کنید.
+      راهنمای کامل در فایل <b>راهنمای-داشبورد.md</b> آمده است.
+    </div></div>
+  </div>
+</main>
+<script src="assets/live.js" defer></script>""".format(
+        upd=esc(updated), kpis=kpihtml, yearc=year_chart, yearv=yearv_chart,
+        monc=mon_chart, donut=dash.donut(mparts), mlegend=mlegend, dowc=dow_chart,
+        hourc=hour_chart, catrows=catrows, toprows=toprows, tagrows=tagrows)
+
+    write("dashboard.html",
+          head("داشبورد آمار — کارآگاه کونان ایران", "آمار کامل محتوا و بازدید", 0) +
+          header("dashboard", 0) + _dash_body + footer(0, updated))
 
     allt = sorted(kept.items(), key=lambda kv: -len(kv[1]))
     cloud2 = "".join(f'<a href="tag/{s}.html">#{esc(tag_names[s])}<b>{len(v)}</b></a>' for s, v in allt)
