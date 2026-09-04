@@ -56,6 +56,13 @@ jobs:
         env:
           # کد GoatCounter خود را اینجا بگذارید تا آمار بازدید فعال شود
           GOATCOUNTER: "detectiveconanir"
+          # نام کاربری و رمز داشبورد مدیریت — اینجا عوضش کنید
+          ADMIN_USER: "admin"
+          ADMIN_PASS: "conan1412"
+          # آدرس عمومی سایت — برای canonical و پیش‌نمایش لینک در تلگرام لازم است
+          SITE_URL: "https://conan512.github.io/conan-archive"
+          # تعداد پست‌هایی که صفحهٔ واقعی p/<id>.html می‌گیرند (پربازدیدترین‌ها)
+          STATIC_TOP: "1000"
         run: COPY_MEDIA=1 python generator/site.py
 
       - name: Commit updated archive
